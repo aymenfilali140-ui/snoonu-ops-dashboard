@@ -17,7 +17,7 @@ type SentimentCounts = {
   negative: number;
 };
 
-export function SentimentOverview({ counts }: { counts: SentimentCounts }) {
+export function SentimentOverview({ counts, title, }: { counts: SentimentCounts; title?: string }) {
   const data = [
     { name: "Positive", value: counts.positive },
     { name: "Neutral", value: counts.neutral },
@@ -31,7 +31,7 @@ export function SentimentOverview({ counts }: { counts: SentimentCounts }) {
     <Card className="bg-white border-slate-200 shadow-sm">
       <CardHeader>
         <CardTitle className="text-sm font-semibold">
-          Sentiment breakdown
+          {title ?? "Sentiment breakdown"}
         </CardTitle>
       </CardHeader>
       <CardContent className="h-64">

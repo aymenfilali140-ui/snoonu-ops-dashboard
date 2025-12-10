@@ -91,6 +91,9 @@ export default function DashboardPage() {
   const [dateFrom, setDateFrom] = useState<string>("");
   const [dateTo, setDateTo] = useState<string>("");
 
+  const [selectedAspect, setSelectedAspect] = useState<AspectKey | "overall">(
+    "overall"
+  );
 
   useEffect(() => {
     async function fetchReviews() {
@@ -192,13 +195,6 @@ export default function DashboardPage() {
     return matchesSentiment && matchesSearch && matchesDate;
   });
 
-  const isFiltered =
-    sentimentFilter !== "All" ||
-    search.trim().length > 0 ||
-    dateFrom !== "" ||
-    dateTo !== "";
-
-
   // Sentiment counts (based on filtered)
   const total = filteredReviews.length;
   const positives = filteredReviews.filter(
@@ -211,17 +207,7 @@ export default function DashboardPage() {
     (r) => r.overall_sentiment === "Neutral"
   ).length;
 
-  const kpis = [
-    {
-      label: isFiltered ? "Total Reviews (filtered)" : "Total Reviews",
-      value: total || "—",
-    },
-    { label: "Negative Reviews", value: negatives || "—" },
-    { label: "Positive Reviews", value: positives || "—" },
-    { label: "Avg Rating", value: "—" },
-  ];
-
-  // Aspect stats (filtered)
+    // Aspect stats (filtered)
   const aspectStats = (
     [
       "timeliness",
@@ -249,6 +235,79 @@ export default function DashboardPage() {
     };
   });
 
+  const negativeShare = 
+    total > 0 ? Math.round((negatives / total)* 100) : null;
+
+  const netSentiment =
+    total > 0 ? Math.round(((positives - negatives) / total) * 100) : null;
+
+  const worstAspect = aspectStats.reduce<
+    { label: string; negative: number} | null
+  >((worst, a) => {
+    if(a.negative === 0) return worst;
+    if(!worst || a.negative > worst.negative) {
+      return { label: a.label, negative: a.negative };
+    }
+    return worst;
+  }, null);
+
+  const isFiltered =
+    sentimentFilter !== "All" ||
+    search.trim().length > 0 ||
+    dateFrom !== "" ||
+    dateTo !== "";
+
+  const kpis = [
+    {
+      id: "total",
+      label: "Total reviews",
+      value: total.toString(),
+      helper: isFiltered ? "Within current filters" : "All reviews",
+    },
+    {
+      id: "negativeShare",
+      label: "Negative share",
+      value: total > 0 && negativeShare !== null ? `${negativeShare}%` : "-",
+      helper: total > 0 ? "Share of reviews that are negative" : "No data",
+    },
+    {
+      id: "netSentiment",
+      label: "Net sentiment",
+      value: netSentiment !== null ? `${netSentiment}` : "—",
+      helper: "Scale -100 (all negative) to +100 (all positive)",
+    },
+    {
+      id: "topPainPoint",
+      label: "Top pain point",
+      value: worstAspect ? worstAspect.label : "None",
+      helper: worstAspect
+        ? `${worstAspect.negative} negative mentions`
+        : "No aspect stands out negatively",
+    },
+  ];
+
+  const overallCounts = {
+    positive: positives,
+    neutral: neutrals,
+    negative: negatives,
+  };
+
+  const selectedAspectStats = 
+    selectedAspect === "overall"
+    ? null
+    : aspectStats.find((a) => a.key === selectedAspect) || null;
+
+  const chartCounts = selectedAspectStats
+    ? {
+        positive: selectedAspectStats.positive,
+        neutral: selectedAspectStats.neutral,
+        negative: selectedAspectStats.negative,
+      }
+    : overallCounts;
+
+  const chartTitle = selectedAspectStats
+      ? `${selectedAspectStats.label} sentiment`
+      : "Sentiment breakdown";
   return (
     <main className="min-h-screen bg-slate-50 text-slate-900">
       <div className="mx-auto max-w-6xl px-4 py-8 space-y-8">
@@ -274,39 +333,37 @@ export default function DashboardPage() {
         </header>
 
         {/* KPI Cards */}
-        <section className="space-y-4">
-          <h2 className="text-xl font-semibold text-slate-800">Overview</h2>
+        <section className="space-y-3">
+          <h2 className="text-lg font-semibold">Overview</h2>
           <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
-          {kpis.map((kpi) => (
-            <Card
-              key={kpi.label}
-              className="bg-white border-slate-200 shadow-sm hover:shadow-md transition-shadow"
-            >
-              <CardHeader className="pb-2">
-                <CardTitle className="text-xs font-medium uppercase tracking-wide text-slate-500">
-                  {kpi.label}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl md:text-4xl font-bold text-slate-900">
-                  {kpi.value}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+            {kpis.map((kpi) => (
+              <Card
+                key={kpi.id}
+                className="shadow-sm"
+              >
+                <CardHeader className="pb-1">
+                  <CardTitle className="text-[11px] font-semibold tracking-wide text-slate-500 uppercase">
+                    {kpi.label}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl md:text-3xl font-semibold">
+                    {kpi.value}
+                  </div>
+                  {kpi.helper && (
+                    <p className="mt-1 text-xs text-slate-500">{kpi.helper}</p>
+                  )}
+                </CardContent>
+              </Card>
+            ))}
           </div>
         </section>
+
 
         {/* Sentiment chart */}
         <section className="space-y-4">
           <h2 className="text-xl font-semibold text-slate-800">Sentiment Analysis</h2>
-          <SentimentOverview
-            counts={{
-              positive: positives,
-              neutral: neutrals,
-              negative: negatives,
-            }}
-          />
+          <SentimentOverview counts ={chartCounts} title={chartTitle} />
         </section>
 
         {/* Aspect-level overview */}
@@ -316,7 +373,17 @@ export default function DashboardPage() {
           {aspectStats.map((a) => (
             <Card
               key={a.key}
-              className="bg-white border-slate-200 shadow-sm"
+              role = "button"
+              tabIndex={0}
+              onClick={() =>
+                setSelectedAspect((prev) => (prev === a.key ? "overall" : a.key))
+              }
+              className={"bg-white border-slate-200 shadow-sm cursor-pointer transition-colors" +
+                (selectedAspect === a.key
+                  ? "border-blue-500 bg-blue-50"
+                  : "hover:border-slate-200 hover:bg-slate-50"
+                )
+              }
             >
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-semibold text-slate-700">
