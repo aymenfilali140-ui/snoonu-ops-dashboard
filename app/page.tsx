@@ -88,6 +88,10 @@ export default function DashboardPage() {
   >("All");
   const [search, setSearch] = useState("");
 
+  const [dateFrom, setDateFrom] = useState<string>("");
+  const [dateTo, setDateTo] = useState<string>("");
+
+
   useEffect(() => {
     async function fetchReviews() {
       try {
@@ -162,11 +166,38 @@ export default function DashboardPage() {
     const matchesSearch =
       !search.trim() || haystack.includes(search.trim().toLowerCase());
 
-    return matchesSentiment && matchesSearch;
+    // Date range logic
+    let matchesDate = true;
+
+    if (dateFrom || dateTo) {
+      const created = r.created_ts ? new Date(r.created_ts) : null;
+
+      if (!created || isNaN(created.getTime())) {
+        // If we have a date filter but no valid date on the review, exclude it
+        matchesDate = false;
+      } else {
+        if (dateFrom) {
+          const fromDate = new Date(dateFrom);
+          if (created < fromDate) matchesDate = false;
+        }
+        if (dateTo) {
+          const toDate = new Date(dateTo);
+          // make "to" inclusive to end of that day
+          toDate.setHours(23, 59, 59, 999);
+          if (created > toDate) matchesDate = false;
+        }
+      }
+    }
+
+    return matchesSentiment && matchesSearch && matchesDate;
   });
 
   const isFiltered =
-    sentimentFilter !== "All" || search.trim().length > 0;
+    sentimentFilter !== "All" ||
+    search.trim().length > 0 ||
+    dateFrom !== "" ||
+    dateTo !== "";
+
 
   // Sentiment counts (based on filtered)
   const total = filteredReviews.length;
@@ -398,6 +429,26 @@ export default function DashboardPage() {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
+              <div className="grid grid-cols-1 gap-2 text-xs sm:grid-cols-2">
+                <div className="flex flex-col gap-1">
+                  <span className="text-[11px] text-slate-500">From date</span>
+                  <Input
+                    type="date"
+                    className="text-sm"
+                    value={dateFrom}
+                    onChange={(e) => setDateFrom(e.target.value)}
+                   />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <span className="text-[11px] text-slate-500">To date</span>
+                  <Input
+                    type="date"
+                    className="text-sm"
+                    value={dateTo}
+                    onChange={(e) => setDateTo(e.target.value)}
+                  />
+                </div>
+              </div>
 
               <div className="flex flex-wrap gap-2 text-xs">
                 {["All", "Positive", "Neutral", "Negative"].map((label) => {
