@@ -95,6 +95,7 @@ export default function DashboardPage() {
   );
   const [showAssistant, setShowAssistant] = useState(true);
   const [showReviews, setShowReviews] = useState(true);
+  const [showInsights, setShowInsights] = useState(false);
 
   useEffect(() => {
     async function fetchReviews() {
@@ -309,6 +310,36 @@ export default function DashboardPage() {
   const chartTitle = selectedAspectStats
       ? `${selectedAspectStats.label} sentiment`
       : "Sentiment breakdown";
+
+  const insightItems = [
+    {
+      title: "Top pain point",
+      detail: worstAspect
+        ? `${worstAspect.label} has ${worstAspect.negative} negative mentions. Assign an owner to investigate root causes.`
+        : "No standout pain point yet. Monitor for emerging negative trends.",
+    },
+    {
+      title: "Negative share",
+      detail:
+        negativeShare !== null
+          ? `Negative share is ${negativeShare}%. If this rises above 25%, trigger a cross-functional review.`
+          : "Not enough data to assess negative share.",
+    },
+    {
+      title: "Volume",
+      detail:
+        total > 50
+          ? "High review volume this period. Schedule daily triage and escalation rules."
+          : "Lower volume. Weekly triage should be sufficient.",
+    },
+    {
+      title: "Sentiment posture",
+      detail:
+        netSentiment !== null
+          ? `Net sentiment is ${netSentiment} (scale -100 to +100). Use this to set weekly goals.`
+          : "Sentiment baseline not available yet.",
+    },
+  ];
   return (
     <main className="min-h-screen bg-slate-50 text-slate-900">
       <div className="mx-auto max-w-6xl px-4 py-8 space-y-8">
@@ -333,333 +364,373 @@ export default function DashboardPage() {
           </div>
         </header>
 
-        {/* KPI Cards */}
-        <section className="space-y-3">
-          <h2 className="text-lg font-semibold">Overview</h2>
-          <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
-            {kpis.map((kpi) => (
-              <Card
-                key={kpi.id}
-                className="shadow-sm"
-              >
-                <CardHeader className="pb-1">
-                  <CardTitle className="text-[11px] font-semibold tracking-wide text-slate-500 uppercase">
-                    {kpi.label}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl md:text-3xl font-semibold">
-                    {kpi.value}
-                  </div>
-                  {kpi.helper && (
-                    <p className="mt-1 text-xs text-slate-500">{kpi.helper}</p>
-                  )}
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </section>
+        <div className="space-y-8">
+            {/* KPI Cards */}
+            <section className="space-y-3">
+              <h2 className="text-lg font-semibold">Overview</h2>
+              <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+                {kpis.map((kpi) => (
+                  <Card
+                    key={kpi.id}
+                    className="shadow-sm"
+                  >
+                    <CardHeader className="pb-1">
+                      <CardTitle className="text-[11px] font-semibold tracking-wide text-slate-500 uppercase">
+                        {kpi.label}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl md:text-3xl font-semibold">
+                        {kpi.value}
+                      </div>
+                      {kpi.helper && (
+                        <p className="mt-1 text-xs text-slate-500">{kpi.helper}</p>
+                      )}
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </section>
 
-        {/* Ask + Filters row */}
-        <section className="space-y-4">
-          <div className="flex items-center justify-between gap-3">
-            <h2 className="text-xl font-semibold text-slate-800">
-              AI Assistant & Filters
-            </h2>
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-8 w-8 p-0 text-lg leading-none"
-              aria-label={
-                showAssistant ? "Collapse AI Assistant and Filters" : "Expand AI Assistant and Filters"
-              }
-              onClick={() => setShowAssistant((prev) => !prev)}
-            >
-              {showAssistant ? "▴" : "▾"}
-            </Button>
-          </div>
-          {showAssistant && (
-            <div className="grid gap-4 lg:grid-cols-3">
-              {/* Ask your data */}
-              <Card className="bg-white border-slate-200 shadow-sm lg:col-span-2">
-                <CardHeader>
-                  <CardTitle className="text-base font-semibold">
-                    Ask your data
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <Textarea
-                    value={question}
-                    onChange={(e) => setQuestion(e.target.value)}
-                    placeholder="Example: Why did timeliness complaints increase this week?"
-                    className="min-h-[80px] text-sm"
-                  />
-
-                  {/* Quick questions */}
-                  <div className="flex flex-wrap gap-2">
-                    {QUICK_QUESTIONS.map((q) => (
-                      <Button
-                        key={q}
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="text-[11px] h-8"
-                        disabled={asking}
-                        onClick={() => handleAsk(q)}
-                      >
-                        {q}
-                      </Button>
-                    ))}
-                  </div>
-
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <Button
-                      variant="default"
-                      className="w-full sm:w-auto px-6 text-sm"
-                      onClick={() => handleAsk()}
-                      disabled={asking || !question.trim()}
-                    >
-                      {asking ? "Asking…" : "Ask"}
-                    </Button>
-
-                    {askError && (
-                      <p className="text-[11px] text-red-500">{askError}</p>
-                    )}
-                    {!askError && !answer && (
-                      <p className="text-[11px] text-slate-500">
-                        Ask a question about recent reviews, or use a quick query
-                        above.
-                      </p>
-                    )}
-                  </div>
-
-                  {answer && (
-                    <div className="mt-1 rounded-md border border-slate-200 bg-slate-50 p-3 text-xs text-slate-800 whitespace-pre-wrap">
-                      {answer}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* Filters */}
-              <Card className="bg-white border-slate-200 shadow-sm">
-                <CardHeader>
-                  <CardTitle className="text-base font-semibold">
-                    Filters
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <Input
-                    placeholder="Search by text, source, or language…"
-                    className="text-sm"
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                  />
-                  <div className="grid grid-cols-1 gap-2 text-xs sm:grid-cols-2">
-                    <div className="flex flex-col gap-1">
-                      <span className="text-[11px] text-slate-500">From date</span>
-                      <Input
-                        type="date"
-                        className="text-sm"
-                        value={dateFrom}
-                        onChange={(e) => setDateFrom(e.target.value)}
+            {/* Ask + Filters row */}
+            <section className="space-y-4">
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="text-xl font-semibold text-slate-800">
+                  AI Assistant & Filters
+                </h2>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 w-8 p-0 text-lg leading-none"
+                  aria-label={
+                    showAssistant ? "Collapse AI Assistant and Filters" : "Expand AI Assistant and Filters"
+                  }
+                  onClick={() => setShowAssistant((prev) => !prev)}
+                >
+                  {showAssistant ? "▴" : "▾"}
+                </Button>
+              </div>
+              {showAssistant && (
+                <div className="grid gap-4 lg:grid-cols-3">
+                  {/* Ask your data */}
+                  <Card className="bg-white border-slate-200 shadow-sm lg:col-span-2">
+                    <CardHeader>
+                      <CardTitle className="text-base font-semibold">
+                        Ask your data
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <Textarea
+                        value={question}
+                        onChange={(e) => setQuestion(e.target.value)}
+                        placeholder="Example: Why did timeliness complaints increase this week?"
+                        className="min-h-[80px] text-sm"
                       />
-                    </div>
-                    <div className="flex flex-col gap-1">
-                      <span className="text-[11px] text-slate-500">To date</span>
-                      <Input
-                        type="date"
-                        className="text-sm"
-                        value={dateTo}
-                        onChange={(e) => setDateTo(e.target.value)}
-                      />
-                    </div>
-                  </div>
 
-                  <div className="flex flex-wrap gap-2 text-xs">
-                    {["All", "Positive", "Neutral", "Negative"].map((label) => {
-                      const active = sentimentFilter === label;
-                      return (
-                        <Badge
-                          key={label}
-                          variant={active ? "default" : "secondary"}
-                          className="px-3 py-1 cursor-pointer"
-                          onClick={() =>
-                            setSentimentFilter(
-                              label as "All" | "Positive" | "Neutral" | "Negative"
-                            )
-                          }
-                        >
-                          {label}
-                        </Badge>
-                      );
-                    })}
-                  </div>
-
-                  <p className="text-[11px] text-slate-500">
-                    Filters apply to both the KPIs and the table.
-                  </p>
-                </CardContent>
-              </Card>
-            </div>
-          )}
-        </section>
-
-        {/* Sentiment chart */}
-        <section className="space-y-4">
-          <h2 className="text-xl font-semibold text-slate-800">Sentiment Analysis</h2>
-          <SentimentOverview counts ={chartCounts} title={chartTitle} />
-        </section>
-
-        {/* Aspect-level overview */}
-        <section className="space-y-4">
-          <h2 className="text-xl font-semibold text-slate-800">Aspect Breakdown</h2>
-          <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
-          {aspectStats.map((a) => (
-            <Card
-              key={a.key}
-              role = "button"
-              tabIndex={0}
-              onClick={() =>
-                setSelectedAspect((prev) => (prev === a.key ? "overall" : a.key))
-              }
-              className={"bg-white border-slate-200 shadow-sm cursor-pointer transition-colors" +
-                (selectedAspect === a.key
-                  ? "border-blue-500 bg-blue-50"
-                  : "hover:border-slate-200 hover:bg-slate-50"
-                )
-              }
-            >
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-semibold text-slate-700">
-                  {a.label}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="text-2xl font-bold text-slate-900">
-                  {a.totalMentioned}
-                  <span className="text-sm font-normal text-slate-500 ml-2">
-                    mentions
-                  </span>
-                </div>
-                <div className="flex flex-col gap-1.5 text-sm">
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-600">Negative</span>
-                    <span className="font-semibold text-snoonu-red">{a.negative}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-600">Positive</span>
-                    <span className="font-semibold text-snoonu-green">{a.positive}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-600">Neutral</span>
-                    <span className="font-semibold text-slate-700">{a.neutral}</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-          </div>
-        </section>
-
-        {/* Reviews table */}
-        <section className="space-y-4">
-          <div className="flex items-center justify-between gap-3">
-            <h2 className="text-xl font-semibold text-slate-800">Review Details</h2>
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-8 w-8 p-0 text-lg leading-none"
-              aria-label={showReviews ? "Collapse review details" : "Expand review details"}
-              onClick={() => setShowReviews((prev) => !prev)}
-            >
-              {showReviews ? "▴" : "▾"}
-            </Button>
-          </div>
-          {showReviews && (
-            <Card className="bg-white border-slate-200 shadow-sm">
-              <CardHeader>
-                <CardTitle className="text-base font-semibold">
-                  Recent Reviews
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="p-0">
-                {loading && (
-                  <div className="p-4 text-xs text-slate-500">
-                    Loading reviews…
-                  </div>
-                )}
-
-                {error && !loading && (
-                  <div className="p-4 text-xs text-red-500">{error}</div>
-                )}
-
-                {!loading && !error && (
-                  <div className="max-h-[420px] overflow-auto">
-                    <Table>
-                      <TableHeader className="sticky top-0 bg-white">
-                        <TableRow>
-                          <TableHead className="w-[140px] text-[11px] uppercase tracking-wide text-slate-500">
-                            Source
-                          </TableHead>
-                          <TableHead className="text-[11px] uppercase tracking-wide text-slate-500">
-                            Text
-                          </TableHead>
-                          <TableHead className="w-[120px] text-[11px] uppercase tracking-wide text-slate-500">
-                            Sentiment
-                          </TableHead>
-                          <TableHead className="w-[60px] text-[11px] uppercase tracking-wide text-slate-500">
-                            Lang
-                          </TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {filteredReviews.map((r) => (
-                          <TableRow key={r.id}>
-                            <TableCell className="text-xs md:text-sm text-slate-700">
-                              {r.source}
-                            </TableCell>
-                            <TableCell className="text-xs md:text-sm text-slate-900">
-                              {r.original_complaint}
-                            </TableCell>
-                            <TableCell className="text-xs md:text-sm">
-                              <Badge
-                                variant="outline"
-                                className={
-                                  r.overall_sentiment === "Negative"
-                                    ? "border-snoonu-red text-snoonu-red"
-                                    : r.overall_sentiment === "Positive"
-                                    ? "border-snoonu-green text-snoonu-green"
-                                    : "border-slate-400 text-slate-700"
-                                }
-                              >
-                                {r.overall_sentiment}
-                              </Badge>
-                            </TableCell>
-                            <TableCell className="text-xs md:text-sm text-slate-500">
-                              {r.detected_language}
-                            </TableCell>
-                          </TableRow>
+                      {/* Quick questions */}
+                      <div className="flex flex-wrap gap-2">
+                        {QUICK_QUESTIONS.map((q) => (
+                          <Button
+                            key={q}
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="text-[11px] h-8"
+                            disabled={asking}
+                            onClick={() => handleAsk(q)}
+                          >
+                            {q}
+                          </Button>
                         ))}
+                      </div>
 
-                        {filteredReviews.length === 0 && (
-                          <TableRow>
-                            <TableCell
-                              colSpan={4}
-                              className="text-center text-xs py-6 text-slate-500"
-                            >
-                              No reviews found for the current filters.
-                            </TableCell>
-                          </TableRow>
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                        <Button
+                          variant="default"
+                          className="w-full sm:w-auto px-6 text-sm"
+                          onClick={() => handleAsk()}
+                          disabled={asking || !question.trim()}
+                        >
+                          {asking ? "Asking…" : "Ask"}
+                        </Button>
+
+                        {askError && (
+                          <p className="text-[11px] text-red-500">{askError}</p>
                         )}
-                      </TableBody>
-                    </Table>
+                        {!askError && !answer && (
+                          <p className="text-[11px] text-slate-500">
+                            Ask a question about recent reviews, or use a quick query
+                            above.
+                          </p>
+                        )}
+                      </div>
+
+                      {answer && (
+                        <div className="mt-1 rounded-md border border-slate-200 bg-slate-50 p-3 text-xs text-slate-800 whitespace-pre-wrap">
+                          {answer}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+
+                  {/* Filters */}
+                  <Card className="bg-white border-slate-200 shadow-sm">
+                    <CardHeader>
+                      <CardTitle className="text-base font-semibold">
+                        Filters
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <Input
+                        placeholder="Search by text, source, or language…"
+                        className="text-sm"
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                      />
+                      <div className="grid grid-cols-1 gap-2 text-xs sm:grid-cols-2">
+                        <div className="flex flex-col gap-1">
+                          <span className="text-[11px] text-slate-500">From date</span>
+                          <Input
+                            type="date"
+                            className="text-sm"
+                            value={dateFrom}
+                            onChange={(e) => setDateFrom(e.target.value)}
+                          />
+                        </div>
+                        <div className="flex flex-col gap-1">
+                          <span className="text-[11px] text-slate-500">To date</span>
+                          <Input
+                            type="date"
+                            className="text-sm"
+                            value={dateTo}
+                            onChange={(e) => setDateTo(e.target.value)}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap gap-2 text-xs">
+                        {["All", "Positive", "Neutral", "Negative"].map((label) => {
+                          const active = sentimentFilter === label;
+                          return (
+                            <Badge
+                              key={label}
+                              variant={active ? "default" : "secondary"}
+                              className="px-3 py-1 cursor-pointer"
+                              onClick={() =>
+                                setSentimentFilter(
+                                  label as "All" | "Positive" | "Neutral" | "Negative"
+                                )
+                              }
+                            >
+                              {label}
+                            </Badge>
+                          );
+                        })}
+                      </div>
+
+                      <p className="text-[11px] text-slate-500">
+                        Filters apply to both the KPIs and the table.
+                      </p>
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
+            </section>
+
+            {/* Sentiment chart */}
+            <section className="space-y-4">
+              <h2 className="text-xl font-semibold text-slate-800">Sentiment Analysis</h2>
+              <SentimentOverview counts ={chartCounts} title={chartTitle} />
+            </section>
+
+            {/* Aspect-level overview */}
+            <section className="space-y-4">
+              <h2 className="text-xl font-semibold text-slate-800">Aspect Breakdown</h2>
+              <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
+              {aspectStats.map((a) => (
+                <Card
+                  key={a.key}
+                  role = "button"
+                  tabIndex={0}
+                  onClick={() =>
+                    setSelectedAspect((prev) => (prev === a.key ? "overall" : a.key))
+                  }
+                  className={"bg-white border-slate-200 shadow-sm cursor-pointer transition-colors" +
+                    (selectedAspect === a.key
+                      ? "border-blue-500 bg-blue-50"
+                      : "hover:border-slate-200 hover:bg-slate-50"
+                    )
+                  }
+                >
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-semibold text-slate-700">
+                      {a.label}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="text-2xl font-bold text-slate-900">
+                      {a.totalMentioned}
+                      <span className="text-sm font-normal text-slate-500 ml-2">
+                        mentions
+                      </span>
+                    </div>
+                    <div className="flex flex-col gap-1.5 text-sm">
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-600">Negative</span>
+                        <span className="font-semibold text-snoonu-red">{a.negative}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-600">Positive</span>
+                        <span className="font-semibold text-snoonu-green">{a.positive}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-600">Neutral</span>
+                        <span className="font-semibold text-slate-700">{a.neutral}</span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+              </div>
+            </section>
+
+            {/* Reviews table */}
+            <section className="space-y-4">
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="text-xl font-semibold text-slate-800">Review Details</h2>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 w-8 p-0 text-lg leading-none"
+                  aria-label={showReviews ? "Collapse review details" : "Expand review details"}
+                  onClick={() => setShowReviews((prev) => !prev)}
+                >
+                  {showReviews ? "▴" : "▾"}
+                </Button>
+              </div>
+              {showReviews && (
+                <Card className="bg-white border-slate-200 shadow-sm">
+                  <CardHeader>
+                    <CardTitle className="text-base font-semibold">
+                      Recent Reviews
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-0">
+                    {loading && (
+                      <div className="p-4 text-xs text-slate-500">
+                        Loading reviews…
+                      </div>
+                    )}
+
+                    {error && !loading && (
+                      <div className="p-4 text-xs text-red-500">{error}</div>
+                    )}
+
+                    {!loading && !error && (
+                      <div className="max-h-[420px] overflow-auto">
+                        <Table>
+                          <TableHeader className="sticky top-0 bg-white">
+                            <TableRow>
+                              <TableHead className="w-[140px] text-[11px] uppercase tracking-wide text-slate-500">
+                                Source
+                              </TableHead>
+                              <TableHead className="text-[11px] uppercase tracking-wide text-slate-500">
+                                Text
+                              </TableHead>
+                              <TableHead className="w-[120px] text-[11px] uppercase tracking-wide text-slate-500">
+                                Sentiment
+                              </TableHead>
+                              <TableHead className="w-[60px] text-[11px] uppercase tracking-wide text-slate-500">
+                                Lang
+                              </TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {filteredReviews.map((r) => (
+                              <TableRow key={r.id}>
+                                <TableCell className="text-xs md:text-sm text-slate-700">
+                                  {r.source}
+                                </TableCell>
+                                <TableCell className="text-xs md:text-sm text-slate-900">
+                                  {r.original_complaint}
+                                </TableCell>
+                                <TableCell className="text-xs md:text-sm">
+                                  <Badge
+                                    variant="outline"
+                                    className={
+                                      r.overall_sentiment === "Negative"
+                                        ? "border-snoonu-red text-snoonu-red"
+                                        : r.overall_sentiment === "Positive"
+                                        ? "border-snoonu-green text-snoonu-green"
+                                        : "border-slate-400 text-slate-700"
+                                    }
+                                  >
+                                    {r.overall_sentiment}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell className="text-xs md:text-sm text-slate-500">
+                                  {r.detected_language}
+                                </TableCell>
+                              </TableRow>
+                            ))}
+
+                            {filteredReviews.length === 0 && (
+                              <TableRow>
+                                <TableCell
+                                  colSpan={4}
+                                  className="text-center text-xs py-6 text-slate-500"
+                                >
+                                  No reviews found for the current filters.
+                                </TableCell>
+                              </TableRow>
+                            )}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+            </section>
+        </div>
+      </div>
+
+      {/* Floating Insights Sidebar */}
+      <div className="fixed right-4 top-28 z-30 flex flex-col items-end gap-3">
+        <Button
+          variant="default"
+          size="sm"
+          className="shadow-md"
+          aria-label="Toggle insights panel"
+          onClick={() => setShowInsights((prev) => !prev)}
+        >
+          <span className="mr-2 text-sm">Insights</span>
+          {showInsights ? "▾" : "▸"}
+        </Button>
+        {showInsights && (
+          <Card className="w-[320px] max-w-[90vw] bg-white border-slate-200 shadow-lg max-h-[70vh] overflow-auto">
+            <CardHeader>
+              <CardTitle className="text-base font-semibold">
+                Business Insights (Preview)
+              </CardTitle>
+              <p className="text-sm text-slate-500">
+                Placeholder guidance that will be AI-generated later, dynamic based on real time KPIs.
+              </p>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {insightItems.map((item) => (
+                <div key={item.title} className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-3">
+                  <div className="text-sm font-semibold text-slate-800">
+                    {item.title}
                   </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
-        </section>
+                  <p className="mt-1 text-xs text-slate-600 leading-relaxed">
+                    {item.detail}
+                  </p>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        )}
       </div>
     </main>
   );
